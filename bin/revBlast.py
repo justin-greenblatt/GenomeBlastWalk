@@ -3,16 +3,27 @@ import os
 import sys
 import logging
 import Bio.Blast.NCBIXML as BlastReader
+from settings.directories import BLAST_REV_TEMP_DIR
 
 #Fasta File
 IN_FILE = sys.argv[1]
 
 #Out fasta file
 OUT_FILE = sys.argv[2]
-TEMP_DIR = os.getcwd()
-TEMP_PREFIX = "blast_temp_"
 
-name = TEMP_PREFIX + sys.argv[1].split("/")[-1].split(".")[0]
+#Strand - (plus/minus)
+STRAND = sys.argv[3]
+
+tempPrefix = ""
+if STRAND == "minus":
+    tempPrefix = "blast_temp_"
+elif STRAND == "plus":
+    tempPrefix = "blast_temp_control_"
+else:
+    print("Entry error in BlastRev. Exiting")
+    sys.exit(0)
+
+name = tempPrefix + sys.argv[1].split("/")[-1].split(".")[0]
 if not os.path.exists(IN_FILE):
     sys.exit(0)
 
@@ -24,7 +35,7 @@ p.wait()
 
 #RUNING BLAST ALIGNER ON REVERSE COMPLEMENT
 
-runBlast = ["blastn", "-query", IN_FILE, "-strand", "minus", "-db", name,
+runBlast = ["blastn", "-query", IN_FILE, "-strand", STRAND, "-db", name,
                 "-out", name + ".xml", "-outfmt", "5"]
 
 b = Popen(runBlast, stdout = PIPE)
@@ -58,5 +69,5 @@ summaryOut.write(summary)
 summaryOut.close()
 
 for f in os.listdir(os.getcwd()):
-    if f.startswith(TEMP_PREFIX):
+    if f.startswith(tempPrefix):
         os.remove(f)

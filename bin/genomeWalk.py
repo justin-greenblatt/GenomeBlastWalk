@@ -5,8 +5,8 @@ import os
 import sys
 from Bio import SeqIO
 import re
-
-
+from settings.runParameters import MINUS_GENE_REGION, PLUS_GENE_REGION
+from settings.directories import REV_BLAST_PATH
 
 #Genome
 IN_FILE_GENOME = sys.argv[1]
@@ -16,15 +16,15 @@ IN_FILE_GTF = sys.argv[2]
 
 #outFile
 OUT_FILE = sys.argv[3]
-
-MINUS_GENE_REGION = 2000
-PLUS_GENE_REGION = 2000
-REV_BLAST_PATH = "GenomeBlastWalk/bin/revBlast.py"
+CONTROL_OUT_FILE = sys.argv[4]
 print("START")
 
 new = open(OUT_FILE,'x')
+newControl = open(CONTROL_OUT_FILE, 'x')
 new.write("geneId,geneStart,geneEnd,geneStrand,queryStart,queryEnd,subjectStart,subjectEnd,matchlength,matchPct\n")
+newControl.write("geneId,geneStart,geneEnd,geneStrand,queryStart,queryEnd,subjectStart,subjectEnd,matchlength,matchPct\n")
 new.close()
+newControl.close()
 
 genomeIterator = SeqIO.parse(IN_FILE_GENOME, "fasta")
 
@@ -73,9 +73,16 @@ while flag:
         tempGeneFasta.close()
     
         #Running revBlast on gene
-        command = ["sudo", "python3", REV_BLAST_PATH, tempFilename, OUT_FILE]
+        
+        command = ["sudo", "python3", REV_BLAST_PATH, tempFilename, OUT_FILE, "minus"]
         p = Popen(command, stdout = PIPE)
         p.wait()
+        
+        #getControl
+
+        controlCommand = ["sudo", "python3", REV_BLAST_PATH, tempFilename, CONTROL_OUT_FILE, "plus"]
+        pc = Popen(controlCommand, stdout = PIPE)
+        pc.wait()
 
         #Removing temporary file
         os.remove(tempFilename)
