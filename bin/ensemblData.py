@@ -5,7 +5,7 @@ from requests import get
 from re import findall
 
 from settings.regularExpressions import ENSEMBLE_FTP_REGEX_GET_SPECIES
-from settings.directories import GENOME_FOLDER, GENOME_WALK_FOLDER
+from settings.directories import GENOME_FOLDER, GENOME_WALK_FOLDER, ENSEMBL_HTML_PATH
 from settings.links import ENSEMBL_DATA_LINK_PREFIX, ENSEMBLE_FTP_LINK
 from myUtils import downloadFromURL
 
@@ -114,5 +114,8 @@ class ensemblGenome:
         self.fileDirectories.pop("gtfAnnotation")
 
 def getEnsemblGenomes():
+    h = open(ENSEMBL_HTML_PATH)
+    ensembleHtmlData = h.read()
+    h.close()
     return list([ensemblGenome(*a) 
-            for a in findall(ENSEMBLE_FTP_REGEX_GET_SPECIES, get(ENSEMBLE_FTP_LINK).text)])
+            for a in findall(ENSEMBLE_FTP_REGEX_GET_SPECIES, ensembleHtmlData)

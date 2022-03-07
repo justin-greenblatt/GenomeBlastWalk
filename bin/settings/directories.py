@@ -1,8 +1,9 @@
 from os import environ
 from os.path import join
-
-GENOME_FOLDER = join(environ.get("HOME"), "data", "genomes")
-GENOME_WALK_FOLDER = join(environ.get("HOME"), "data", "genomes")
-REPEAT_MASK_FOLDER = join(environ.get("HOME"), "data", "repeatMasker")
-REV_BLAST_PATH = join(environ.get("HOME"), "GenomeBlastWalk/bin/revBlast.py")
-BLAST_REV_TEMP_DIR = join(environ.get("HOME"), "bin", "temp")
+APLICATION_PATH = join(environ.get("HOME"), "GenomeBlastWalk")
+GENOME_FOLDER = join(APLICATION_PATH, "data", "genomes")
+GENOME_WALK_FOLDER = join(APLICATION_PATH, "data", "genomes")
+REPEAT_MASK_FOLDER = join(APLICATION_PATH, "data", "repeatMasker")
+REV_BLAST_PATH = join(APLICATION_PATH,  "/bin/revBlast.py")
+BLAST_REV_TEMP_DIR = join(APLICATION_PATH, "data","temp")
+ENSEMBL_HTML_PATH = join(APLICATION_PATH, "data","ensemblGenomes.html")
