@@ -1,14 +1,16 @@
-
-from os import chdir, getcwd, remove
-from os.path import join
+import gzip
+from subprocess import Popen, PIPE
+from collections import Counter
+from os import chdir, getcwd, remove, listdir
+from os.path import join, isfile
 from requests import get
 from re import findall
-
+from Bio import SeqIO
 from settings.regularExpressions import ENSEMBLE_FTP_REGEX_GET_SPECIES
-from settings.directories import GENOME_FOLDER, GENOME_WALK_FOLDER, ENSEMBL_HTML_PATH
+from settings.directories import GENOME_FOLDER, GENOME_WALK_FOLDER, GENOME_WALK_PATH, ENSEMBL_HTML_PATH, GTF_FOLDER
 from settings.links import ENSEMBL_DATA_LINK_PREFIX, ENSEMBLE_FTP_LINK
 from myUtils import downloadFromURL
-
+from sys import exit
 
 class ensemblGenome:
     def __init__(self, preLink, name, species):
@@ -37,26 +39,48 @@ class ensemblGenome:
 
         self.linkDict = {a[0]: join(ENSEMBL_DATA_LINK_PREFIX, a[1], self.preLink, a[2]) for a in dataTypes}
         self.fileDirectories = {}
-        
-    def getGenome(self, folder):
+
+    def getGenome(self, folder = GENOME_FOLDER):
 
         #Downloading ensemble Links for genome
-        raw = get(join(ENSEMBL_DATA_LINK_PREFIX,self.linkDict["dna"])).text
-        genomeLink = findall("=\"(.*?sm.toplevel.fa.gz)",raw)[0]
-        
+        getLink = self.linkDict["dna"]
+        print(getLink)
+        raw = get(getLink,verify=False).text
+        genomeLink = join(getLink, findall("=\"(.*?sm.toplevel.fa.gz)",raw)[0])
+        print(genomeLink)
+
+        genomeAlreadyDownloaded = False
+        for f in listdir(GENOME_FOLDER):
+            print("downloaded",join(GENOME_FOLDER, f))
+            if self.preLink.lower() in f.lower():
+                genomeAlreadyDownloaded = True
+                self.fileDirectories["dna"] = join(GENOME_FOLDER,f)
+
+        if isfile(join(GENOME_FOLDER, genomeLink.split('/')[-1])):
+            genomeAlreadyDownloaded = True
+            self.fileDirectories["dna"] = join(GENOME_FOLDER, genomeLink.split('/')[-1])
+
+        if not genomeAlreadyDownloaded:
         #Download Genome
-        old = getcwd()
-        chdir(folder)
-        self.fileDirectories["dna"] = downloadFromURL(genomeLink)
-        chdir(old)
-        
-        #gettinGenomeData
+            old = getcwd()
+            chdir(folder)
+            self.fileDirectories["dna"] = join(GENOME_FOLDER,downloadFromURL(genomeLink))
+            chdir(old)
+            print("GenomeDownloaded")
+        else:
+            print("GENOME ALREADY DOWNLOADED")
+
+    def parseGenome(self):
+
         self.chromossomes = {}
-        genomeIterator = SeqIO.parse(self.fileDirectories["dna"], "fasta")
+        print("Parsing",self.fileDirectories["dna"])
+        genomeHandler = gzip.open(self.fileDirectories["dna"], "rt")
+        genomeIterator = SeqIO.parse(genomeHandler, "fasta")
         self.baseCounter = Counter()
-        self.genomeBaseData = {} 
+        self.genomeBaseData = Counter()
         self.softMaskSizes = Counter()
         for c in genomeIterator:
+            print("Parsing", c.id)
             sequence = str(c.seq)
             self.chromossomes[c.id] = len(sequence)
             maskedSize = 0
@@ -70,47 +94,66 @@ class ensemblGenome:
                         self.softMaskSizes[maskedSize] +=1
                         maskedSize = 0
 
+    def getGtf(self):
+        getLink = self.linkDict["gtfAnnotation"]
+        raw = get(getLink,verify=False).text
+        gtfLink = None
+        try:
+            gtfLink = findall("=\"(.*?\\.chr\\.gtf\\.gz)",raw)[0]
+        except:
+            gtfLink = findall("=\"(.*?\\.gtf\\.gz)",raw)[0]
 
-        self.genomeSize = sum(list(self.chromossomes.items()))
+        genomeAlreadyDownloaded = False
+        for f in listdir(GTF_FOLDER):
+            print("downloaded",join(GTF_FOLDER, f))
+            if self.preLink.lower() in f.lower():
+                genomeAlreadyDownloaded = True
+                self.fileDirectories["gtfAnnotation"] = join(GTF_FOLDER,f)
 
+        if isfile(join(GTF_FOLDER, gtfLink.split('/')[-1])):
+            genomeAlreadyDownloaded = True
+            self.fileDirectories["gtfAnnotation"] = join(GTF_FOLDER, gtfLink.split('/')[-1])
 
+        if not genomeAlreadyDownloaded:
+            old = getcwd()
+            chdir(GTF_FOLDER)
+            self.fileDirectories["gtfAnnotation"] = join(GTF_FOLDER, downloadFromURL(join(getLink, gtfLink)))
+            chdir(old)
+        else:
+            print("GTF FILE ALREADY DOWNLOADED")
 
-    def getGtf(self,folder):
-
-        raw = requests.get(join(ENSEMBL_DATA_LINK_PREFIX,self.linkDict["gtfAnnotation"])).text
-        genomeLink = findall("=\"(.*?\\.chr\\.gtf\\.gz)",raw)[0]
-        old = getcwd()
-        chdir(folder)
-        self.fileDirectories["gtfAnnotation"] = downloadFromURL(genomeLink)
-        chdir(old)
-  
     def runGenomeWalk(self):
         blastOutFile = join(GENOME_WALK_FOLDER, self.preLink + ".gw")
-        blastControlOutFile = join(GENOME_WALK_DIR, self.preLink + "_control.gw") 
-            
-        if not blastOutFile in self.fileDirectories:             
+        blastControlOutFile = join(GENOME_WALK_FOLDER, self.preLink + "_control.gw")
+
+        if not blastOutFile in self.fileDirectories:
             if not "gtfAnnotation" in self.fileDirectories:
                 try:
                     self.getGtf()
                 except:
                     print("error getting gtf for " + self.name)
+                    exit(0)
             if not "dna" in self.fileDirectories:
                 try:
                     self.getGenome()
                 except:
-                    print("error getting genome for " + self.name)     
-   
-            p = Popen(
-                      ["python3", GENOME_WALK_DIR,
+                    print("error getting genome for " + self.name)
+                    exit(0)
+            try:
+                 p = Popen(
+                      ["python3", GENOME_WALK_PATH,
                       self.fileDirectories["dna"],
                       self.fileDirectories["gtfAnnotation"],
                       blastOutFile,
                       blastControlOutFile],
                       stdout = PIPE)
-            p.wait()
-        remove(self.fileDirectories["dna"])
-        remove(self.fileDirectories["gtfAnnotation"])
-        self.fileDirectories.pop("dna")
+                 p.wait()
+                 remove(self.fileDirectories["dna"])
+                 remove(self.fileDirectories["gtfAnnotation"])
+                 self.fileDirectories.pop("dna")
+                 self.fileDirectories.pop("gtfAnnotation")
+            except:
+                pass
         self.fileDirectories.pop("gtfAnnotation")
 
 def getEnsemblGenomes():
@@ -118,4 +161,4 @@ def getEnsemblGenomes():
     ensembleHtmlData = h.read()
     h.close()
     return list([ensemblGenome(*a) 
-            for a in findall(ENSEMBLE_FTP_REGEX_GET_SPECIES, ensembleHtmlData)
+            for a in findall(ENSEMBLE_FTP_REGEX_GET_SPECIES, ensembleHtmlData)])

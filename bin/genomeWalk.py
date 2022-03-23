@@ -7,6 +7,7 @@ from Bio import SeqIO
 import re
 from settings.runParameters import MINUS_GENE_REGION, PLUS_GENE_REGION
 from settings.directories import REV_BLAST_PATH
+import gzip
 
 #Genome
 IN_FILE_GENOME = sys.argv[1]
@@ -25,10 +26,9 @@ new.write("geneId,geneStart,geneEnd,geneStrand,queryStart,queryEnd,subjectStart,
 newControl.write("geneId,geneStart,geneEnd,geneStrand,queryStart,queryEnd,subjectStart,subjectEnd,matchlength,matchPct\n")
 new.close()
 newControl.close()
-
-genomeIterator = SeqIO.parse(IN_FILE_GENOME, "fasta")
-
-gtfIterator = open(IN_FILE_GTF, 'r')
+genomeHandler = gzip.open(IN_FILE_GENOME,'rt')
+genomeIterator = SeqIO.parse(genomeHandler, "fasta")
+gtfIterator = gzip.open(IN_FILE_GTF, 'rt')
 
 flag = True
 
@@ -89,3 +89,6 @@ while flag:
     
         gene = getNextGene(gtfIterator)
     chromosome = next(genomeIterator, None)
+gtfHandler.close()
+genomeHandler.close()
+

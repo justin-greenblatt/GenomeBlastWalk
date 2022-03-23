@@ -34,14 +34,14 @@ class repeatMaskData():
         cwd = getcwd()
         chdir(REPEAT_MASK_FOLDER)
         filename = downloadFromURL(self.repeatMaskerOutLink)
-        repeatData = path.join(getcwd(), filename)
+        repeatData = join(getcwd(), filename)
         chdir(cwd)
 
 
         self.familyDist = Counter()
         self.classDist = Counter()
 
-        h = gzip.open(path.join(REPEAT_MASK_FOLDER, filename))
+        h = gzip.open(join(REPEAT_MASK_FOLDER, filename))
         self.sizeDist = []
 
         self.outDict = {}
@@ -71,12 +71,6 @@ def getAllData():
     species = []
     for l in links:
         organism = repeatMaskData(l)
-        organism.GetRepeatData()
         print(organism.species)
         species.append(organism)
     return species
-
-def testData():
-
-    links = getAllRepeatMaskLinks()
-    return repeatMaskData(links[0])
